@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BereaFS - Connexion</title>
+    <link rel="stylesheet" href="/client/assets/css/styles.css">
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f 0%,#0f2942 50%,#1a365d 100%);position:relative}
+        body::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 20% 80%,rgba(192,86,33,.15) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(44,82,130,.2) 0%,transparent 50%);pointer-events:none}
+        .container{width:100%;max-width:420px;padding:0 20px;position:relative;z-index:1}
+        .card{background:rgba(255,255,255,.95);border-radius:24px;padding:40px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+        .brand{text-align:center;margin-bottom:32px}
+        .brand-icon{width:80px;height:80px;border-radius:20px;margin:0 auto 16px;box-shadow:0 10px 25px rgba(192,86,33,.3);overflow:hidden;background:linear-gradient(135deg,#1e3a5f,#0f2942);display:flex;align-items:center;justify-content:center}
+        .brand-icon svg{width:72px;height:72px}
+        .brand h1{font-size:1.5rem;font-weight:700}.brand p{font-size:.875rem;color:#64748b;margin-top:4px}
+        .form-group{margin-bottom:20px}
+        .form-label{display:block;font-size:.875rem;font-weight:500;margin-bottom:8px}
+        .form-input{width:100%;padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;font-size:1rem;outline:none;font-family:inherit;transition:all .2s}
+        .form-input:focus{border-color:#2c5282;box-shadow:0 0 0 3px rgba(44,82,130,.1)}
+        .btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:1rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:all .2s}
+        .btn-primary{background:linear-gradient(135deg,#1e3a5f,#2c5282);color:#fff}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(30,58,95,.3)}
+        .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .btn-accent{background:linear-gradient(135deg,#c05621,#ed8936);color:#fff;margin-top:12px}
+        .btn-accent:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .tabs{display:flex;margin-bottom:24px;background:#f1f5f9;border-radius:10px;padding:4px}
+        .tab{flex:1;padding:10px;border:none;background:transparent;font-size:.875rem;font-weight:600;cursor:pointer;border-radius:8px;color:#64748b;font-family:inherit;transition:all .2s}
+        .tab.active{background:#fff;color:#1e293b;box-shadow:0 2px 4px rgba(0,0,0,.05)}
+        .error-msg,.success-msg{display:none;padding:12px 16px;border-radius:10px;font-size:.875rem;margin-bottom:16px}
+        .error-msg{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+        .success-msg{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+        .hidden{display:none!important}
+        .remember-forgot{display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-size:.875rem}
+        .remember{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text-light)}
+        .link{color:#2c5282;text-decoration:none;font-weight:500;cursor:pointer;background:none;border:none;font-family:inherit}
+        .server-status{display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--text-light);margin-bottom:16px}
+        .server-dot{width:8px;height:8px;border-radius:50%;background:var(--danger)}
+        .server-dot.online{background:var(--success)}
+        @media(max-width:480px){.card{padding:32px 24px}.brand-icon{width:56px;height:56px}}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="36" r="22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <path d="M28,18 Q34,16 40,18 L40,42 Q34,44 28,42 Q34,40 40,38 L40,28 Q34,26 28,28Z" fill="rgba(255,255,255,0.9)"/>
+                        <path d="M40,18 Q46,16 52,18 L52,42 Q46,44 40,42 L40,38 Q46,40 52,38 L52,28 Q46,26 40,28Z" fill="rgba(255,255,255,0.8)"/>
+                        <line x1="40" y1="18" x2="40" y2="42" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+                        <rect x="38" y="14" width="4" height="20" rx="1.5" fill="#ed8936"/>
+                        <rect x="33" y="20" width="14" height="4" rx="1.5" fill="#c05621"/>
+                    </svg>
+                </div>
+                <h1>BereaFS</h1>
+                <p>Formation Biblique</p>
+            </div>
+
+            <div class="server-status" id="serverStatus">
+                <div class="server-dot" id="serverDot"></div>
+                <span id="serverLabel">Vérification du serveur...</span>
+            </div>
+
+            <div class="error-msg" id="msg"></div>
+            <div class="success-msg" id="successMsg"></div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showLogin()" id="tabLogin">Connexion</button>
+                <button class="tab" onclick="showRegister()" id="tabRegister">Nouveau compte</button>
+            </div>
+
+            <!-- LOGIN -->
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="loginEmail" required></div>
+                <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" required></div>
+                <div class="remember-forgot"><label class="remember"><input type="checkbox" checked><span>Se souvenir</span></label></div>
+                <button type="submit" class="btn btn-primary" id="loginBtn">Se connecter →</button>
+            </form>
+
+            <!-- REGISTER -->
+            <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+                <div class="form-group"><label class="form-label">Nom complet</label><input type="text" class="form-input" id="regName" required></div>
+                <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="regEmail" required></div>
+                <div class="form-group"><label class="form-label">Telephone</label><input type="tel" class="form-input" id="regPhone" required></div>
+                <div class="form-group"><label class="form-label">Pays</label><select class="form-input" id="regCountry"><option value="">Choisir...</option><option value="CI">Cote d'Ivoire</option><option value="BF">Burkina Faso</option><option value="ML">Mali</option><option value="SN">Senegal</option><option value="GH">Ghana</option><option value="TG">Togo</option><option value="BJ">Benin</option></select></div>
+                <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="regPassword" minlength="6" required></div>
+                <button type="submit" class="btn btn-accent" id="registerBtn">Creer mon compte →</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Include modules -->
+    <script src="/client/assets/js/api.js"></script>
+    <script src="/client/assets/js/auth.js"></script>
+    <script src="/client/assets/js/security.js"></script>
+    <script src="/client/assets/js/notifications.js"></script>
+    <script src="/client/assets/js/pwa.js"></script>
+
+    <script>
+    // ============================================================
+    // BEREAFS LOGIN / REGISTER — Connected to Backend API
+    // ============================================================
+
+    function showError(m) {
+        const e = document.getElementById('msg');
+        e.textContent = m; e.style.display = 'block'; e.className = 'error-msg';
+        document.getElementById('successMsg').style.display = 'none';
+    }
+
+    function showSuccess(m) {
+        const e = document.getElementById('successMsg');
+        e.textContent = m; e.style.display = 'block'; e.className = 'success-msg';
+        document.getElementById('msg').style.display = 'none';
+    }
+
+    function showLogin() {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('registerForm').classList.add('hidden');
+        document.getElementById('tabLogin').classList.add('active');
+        document.getElementById('tabRegister').classList.remove('active');
+    }
+
+    function showRegister() {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.remove('hidden');
+        document.getElementById('tabLogin').classList.remove('active');
+        document.getElementById('tabRegister').classList.add('active');
+    }
+
+    // ---- LOGIN ----
+    async function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+        const password = document.getElementById('loginPassword').value;
+
+        if (!Security.isValidEmail(email)) { showError('Email invalide.'); return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Connexion...';
+
+        const result = await Auth.login(email, password);
+        btn.disabled = false;
+        btn.textContent = 'Se connecter →';
+
+        if (result.success) {
+            showSuccess('Connexion reussie! Redirection...');
+            setTimeout(() => window.location.href = '/client/dashboard.html', 600);
+        } else {
+            showError(result.error);
+        }
+    }
+
+    // ---- REGISTER ----
+    async function handleRegister(e) {
+        e.preventDefault();
+        const btn = document.getElementById('registerBtn');
+        const name = document.getElementById('regName').value.trim();
+        const email = document.getElementById('regEmail').value.trim().toLowerCase();
+        const phone = document.getElementById('regPhone').value.trim();
+        const country = document.getElementById('regCountry').value;
+        const password = document.getElementById('regPassword').value;
+
+        if (!country) { showError('Selectionnez un pays.'); return; }
+        if (!Security.isValidPassword(password)) { showError('Mot de passe trop court (6 min).'); return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Creation du compte...';
+
+        const result = await Auth.register(name, email, password, phone, country);
+        btn.disabled = false;
+        btn.textContent = 'Creer mon compte →';
+
+        if (result.success) {
+            showSuccess('Compte cree! Redirection vers le dashboard...');
+            setTimeout(() => window.location.href = '/client/dashboard.html', 1000);
+        } else {
+            showError(result.error);
+        }
+    }
+
+    // ---- Check if already logged in ----
+    (function checkExistingSession() {
+        const user = Auth.getCurrentUser();
+        if (user && !Security.isTokenExpired(API.getToken())) {
+            window.location.href = '/client/dashboard.html';
+        }
+    })();
+
+    // ---- Check server status ----
+    (async function checkServer() {
+        const dot = document.getElementById('serverDot');
+        const label = document.getElementById('serverLabel');
+        try {
+            await API.health();
+            dot.classList.add('online');
+            label.textContent = 'Serveur connecte';
+        } catch {
+            dot.classList.remove('online');
+            label.textContent = 'Serveur non disponible';
+        }
+    })();
+
+    // ---- Pre-fill demo ----
+    document.getElementById('loginEmail').value = 'pasteur@bereafs.com';
+    document.getElementById('loginPassword').value = 'admin123';
+    </script>
+</body>
+</html>

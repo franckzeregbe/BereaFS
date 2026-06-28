@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BereaFS - Leçon</title>
+    <link rel="stylesheet" href="/client/assets/css/styles.css">
+    <style>
+        body{background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+        .container{max-width:900px;margin:0 auto}
+        .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px}
+        .top-bar h1{font-size:1.5rem;font-weight:700}
+
+        .video-wrapper{background:#000;border-radius:16px;overflow:hidden;position:relative;margin-bottom:20px;box-shadow:0 20px 40px -10px rgba(0,0,0,.3)}
+        .video-player{width:100%;display:block;background:linear-gradient(135deg,#1a365d,#0f2942);aspect-ratio:16/9;object-fit:contain}
+
+        .video-controls{position:absolute;bottom:0;left:0;right:0;padding:16px 20px;background:linear-gradient(transparent,rgba(0,0,0,.8));display:flex;align-items:center;gap:12px;opacity:0;transition:opacity .3s}
+        .video-wrapper:hover .video-controls{opacity:1}
+        .ctrl-btn{background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s}
+        .ctrl-btn:hover{background:rgba(255,255,255,.1)}
+        .progress-container{flex:1;height:6px;background:rgba(255,255,255,.2);border-radius:3px;cursor:pointer;position:relative;overflow:hidden}
+        .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .1s linear}
+        .progress-loaded{position:absolute;top:0;left:0;height:100%;background:rgba(255,255,255,.15);width:0%}
+        .quality-badge{position:absolute;top:12px;right:12px;padding:4px 10px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;font-size:.75rem;font-weight:600}
+        .buffering{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.2rem;display:none}
+        .buffering.show{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .buffering.show::before{content:'';width:32px;height:32px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        .audio-player{background:var(--card);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px;border:1px solid var(--border);margin-bottom:20px}
+        .audio-player button{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:1.2rem;cursor:pointer;flex-shrink:0;transition:all .2s}
+        .audio-player button:hover{transform:scale(1.05)}
+
+        .panel{background:var(--card);border-radius:16px;padding:24px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);border:1px solid var(--border)}
+        .lesson-nav{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+        .lesson-pill{padding:10px 20px;border-radius:20px;border:1px solid var(--border);background:#fff;cursor:pointer;white-space:nowrap;font-size:.9rem;transition:all .2s}
+        .lesson-pill:hover,.lesson-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+        .scripture-box{background:#f0f9ff;border-left:4px solid var(--primary-light);padding:16px 20px;border-radius:0 12px 12px 0;margin:20px 0}
+        .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:20px 0}
+        .stat-item{text-align:center;padding:16px;background:#f8fafb;border-radius:12px}
+
+        @media(max-width:768px){
+            .container{padding:0}
+            .video-wrapper{border-radius:0;margin:0 -20px 20px}
+            .video-controls{padding:12px 16px}
+            .stats{grid-template-columns:1fr}
+            .top-bar{flex-direction:column;align-items:flex-start}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="36" r="22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <path d="M28,18 Q34,16 40,18 L40,42 Q34,44 28,42 Q34,40 40,38 L40,28 Q34,26 28,28Z" fill="rgba(255,255,255,0.9)"/>
+                        <path d="M40,18 Q46,16 52,18 L52,42 Q46,44 40,42 L40,38 Q46,40 52,38 L52,28 Q46,26 40,28Z" fill="rgba(255,255,255,0.8)"/>
+                        <line x1="40" y1="18" x2="40" y2="42" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+                        <rect x="38" y="14" width="4" height="20" rx="1.5" fill="#ed8936"/>
+                        <rect x="33" y="20" width="14" height="4" rx="1.5" fill="#c05621"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 id="lessonTitle">Leçon</h1>
+                    <p style="color:var(--text-light);margin-top:4px" id="lessonSubtitle">Fondements de la Foi Chrétienne</p>
+                </div>
+            </div>
+            <button class="btn btn-outline" onclick="window.location.href='dashboard.html'">← Retour</button>
+        </div>
+
+        <div class="video-wrapper" id="videoContainer">
+            <div class="buffering" id="buffering">⏳ Chargement...</div>
+            <div class="quality-badge" id="qualityBadge">Auto</div>
+            <video id="lessonVideo" class="video-player" preload="metadata" playsinline>
+                <source id="videoSource" src="" type="video/mp4">
+                <p>Votre navigateur ne supporte pas la lecture vidéo.</p>
+            </video>
+            <div class="video-controls">
+                <button class="ctrl-btn" id="playBtn">▶️</button>
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-loaded" id="progressLoaded"></div>
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="timeDisplay" style="color:#fff;font-size:.85rem">0:00 / 0:00</span>
+                <button class="ctrl-btn" id="muteBtn">🔊</button>
+                <button class="ctrl-btn" id="fullscreenBtn">⛶</button>
+            </div>
+        </div>
+
+        <div class="audio-player">
+            <button id="audioPlayBtn">🎧</button>
+            <div style="flex:1"><h4>Version Audio</h4><p style="font-size:.85rem;color:var(--text-light)">Pour réviser en écoutant</p></div>
+            <div style="text-align:right"><div id="audioTime" style="font-size:.9rem;font-weight:600">0:00</div></div>
+        </div>
+        <audio id="lessonAudio" style="display:none"><source id="audioSource" src="" type="audio/mpeg"></audio>
+
+        <div class="lesson-nav">
+            <div class="lesson-pill active">4. Le Salut</div>
+            <div class="lesson-pill">5. Foi</div>
+            <div class="lesson-pill">6. Église</div>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-bottom:16px">Contenu de la Leçon</h2>
+            <p id="lessonContent" style="line-height:1.8;color:var(--text);margin-bottom:16px">
+                La Parole dans le Nouveau Testament pour sauver et chef de l'Église, l'apôtre Paul déclare avec force à l'Église d'Éphèse que rien de ce que l'homme peut accomplir ne peut le sauver. C'est un acte pur de la grâce divine.
+            </p>
+            <div class="scripture-box">
+                <p style="font-size:.85rem;color:var(--primary-light);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📖 Passages Bibliques</p>
+                <p style="font-style:italic;font-weight:500">« Car c'est par la grâce que vous êtes sauvés, par le moyen de la foi. »</p>
+                <p style="color:var(--accent);font-weight:600;margin-top:8px">— Éphésiens 2:8-9 (LSG)</p>
+            </div>
+            <div class="stats">
+                <div class="stat-item"><div style="font-size:1.5rem;font-weight:700">61</div><div style="font-size:.8rem;color:var(--text-light)">Minutes</div></div>
+                <div class="stat-item"><div style="font-size:1.5rem;font-weight:700">3</div><div style="font-size:.8rem;color:var(--text-light)">Passages</div></div>
+                <div class="stat-item"><div style="font-size:1.5rem;font-weight:700">158</div><div style="font-size:.8rem;color:var(--text-light)">Versets</div></div>
+            </div>
+            <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+                <button class="btn btn-primary" id="markCompleteBtn">✓ Marquer comme terminé</button>
+                <button class="btn btn-accent" onclick="window.location.href='dashboard.html'"> Passer le Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/client/assets/js/api.js"></script>
+    <script src="/client/assets/js/notifications.js"></script>
+    <script src="/client/assets/js/pwa.js"></script>
+
+    <script>
+    // Parse URL params
+    const params = new URLSearchParams(window.location.search);
+    const courseId = params.get('course');
+    const lessonId = params.get('lesson');
+    const title = params.get('title') || 'Leçon';
+    const videoUrl = params.get('video');
+    const audioUrl = params.get('audio');
+
+    // Set title
+    document.getElementById('lessonTitle').textContent = title;
+    if (courseId) {
+        document.getElementById('lessonSubtitle').textContent = 'Cours #' + courseId;
+    }
+
+    // Setup video/audio sources
+    if (videoUrl) document.getElementById('videoSource').src = videoUrl;
+    if (audioUrl) document.getElementById('audioSource').src = audioUrl;
+
+    // Video player controls
+    const video = document.getElementById('lessonVideo');
+    const playBtn = document.getElementById('playBtn');
+    const progressFill = document.getElementById('progressFill');
+    const progressLoaded = document.getElementById('progressLoaded');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const progressContainer = document.getElementById('progressContainer');
+    const buffering = document.getElementById('buffering');
+
+    playBtn.addEventListener('click', togglePlay);
+    video.addEventListener('click', togglePlay);
+
+    function togglePlay() {
+        if (video.paused) { video.play(); playBtn.textContent = '⏸'; }
+        else { video.pause(); playBtn.textContent = '▶️'; }
+    }
+
+    video.addEventListener('timeupdate', () => {
+        const progress = (video.currentTime / video.duration) * 100;
+        progressFill.style.width = progress + '%';
+        const curM = Math.floor(video.currentTime / 60), curS = Math.floor(video.currentTime % 60);
+        const durM = Math.floor((video.duration || 0) / 60), durS = Math.floor((video.duration || 0) % 60);
+        timeDisplay.textContent = `${curM}:${String(curS).padStart(2, '0')} / ${durM}:${String(durS).padStart(2, '0')}`;
+    });
+
+    video.addEventListener('progress', () => {
+        if (video.buffered.length > 0) {
+            const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+            if (video.duration > 0) progressLoaded.style.width = (bufferedEnd / video.duration * 100) + '%';
+        }
+    });
+
+    video.addEventListener('waiting', () => buffering.classList.add('show'));
+    video.addEventListener('canplay', () => buffering.classList.remove('show'));
+    video.addEventListener('ended', () => { playBtn.textContent = '▶️'; });
+
+    progressContainer.addEventListener('click', (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        video.currentTime = ((e.clientX - rect.left) / rect.width) * (video.duration || 0);
+    });
+
+    document.getElementById('muteBtn').addEventListener('click', () => {
+        video.muted = !video.muted;
+        document.getElementById('muteBtn').textContent = video.muted ? '🔇' : '🔊';
+    });
+
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else video.requestFullscreen();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch(e.key) {
+            case ' ': e.preventDefault(); togglePlay(); break;
+            case 'ArrowLeft': video.currentTime = Math.max(0, video.currentTime - 10); break;
+            case 'ArrowRight': video.currentTime = Math.min(video.duration, video.currentTime + 10); break;
+            case 'f': document.getElementById('fullscreenBtn').click(); break;
+            case 'm': document.getElementById('muteBtn').click(); break;
+        }
+    });
+
+    // Audio
+    const audio = document.getElementById('lessonAudio');
+    document.getElementById('audioPlayBtn').addEventListener('click', () => {
+        if (audio.paused) { audio.play(); document.getElementById('audioPlayBtn').textContent = '⏸'; }
+        else { audio.pause(); document.getElementById('audioPlayBtn').textContent = '🎧'; }
+    });
+
+    // Mark complete
+    document.getElementById('markCompleteBtn').addEventListener('click', async function() {
+        if (lessonId) {
+            try {
+                await API.completeLesson(lessonId);
+                Notifications.success('Leçon marquée comme terminée!');
+            } catch (err) {
+                Notifications.error(err.message);
+            }
+        }
+        this.textContent = '✓ Terminé!';
+        this.style.background = 'var(--success)';
+        this.disabled = true;
+    });
+    </script>
+</body>
+</html>
