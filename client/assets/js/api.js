@@ -4,12 +4,12 @@
  */
 const API = (() => {
     const BASE = window.location.origin;
-    let token = sessionStorage.getItem('bereafs_token');
+    let token = localStorage.getItem('bereafs_token');
 
     const setToken = (t) => {
         token = t;
-        if (t) sessionStorage.setItem('bereafs_token', t);
-        else sessionStorage.removeItem('bereafs_token');
+        if (t) localStorage.setItem('bereafs_token', t);
+        else localStorage.removeItem('bereafs_token');
     };
 
     const getToken = () => token;
@@ -19,12 +19,24 @@ const API = (() => {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     });
 
+    // Session expiree -> nettoyage + redirection (sauf sur la page de connexion)
+    const handleExpiredSession = () => {
+        token = null;
+        localStorage.removeItem('bereafs_token');
+        localStorage.removeItem('bereafs_current');
+        if (window.location.pathname !== '/client/index.html' && window.location.pathname !== '/') {
+            window.location.href = '/client/index.html';
+        }
+    };
+
     const request = async (url, options = {}) => {
         const res = await fetch(`${BASE}${url}`, {
             ...options,
             headers: { ...headers(), ...options.headers }
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401 && token) { handleExpiredSession(); throw new Error(data.error || 'Session expirée.'); }
+        if (res.status === 403 && /expir/i.test(data.error || '') && token) { handleExpiredSession(); throw new Error(data.error); }
         if (!res.ok) throw new Error(data.error || 'Erreur serveur');
         return data;
     };
@@ -54,6 +66,19 @@ const API = (() => {
 
         async getProfile() {
             return request('/api/auth/me');
+        },
+
+        // STATS / QUIZZES / STUDENTS
+        async getStats() {
+            return request('/api/stats');
+        },
+
+        async getMyQuizzes() {
+            return request('/api/my/quizzes');
+        },
+
+        async getStudents() {
+            return request('/api/admin/students');
         },
 
         // COURSES
@@ -138,7 +163,7 @@ const API = (() => {
         async uploadVideo(file, onProgress) {
             return new Promise((resolve, reject) => {
                 const fd = new FormData();
-                fd.append('videoFile', file);
+                fd.append('media', file);
 
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `${BASE}/api/admin/upload`);
@@ -162,31 +187,8 @@ const API = (() => {
             });
         },
 
-        async uploadMedia(file, onProgress) {
-            return new Promise((resolve, reject) => {
-                const fd = new FormData();
-                fd.append('media', file);
-
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', `${BASE}/api/admin/upload`);
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-                if (onProgress) {
-                    xhr.upload.addEventListener('progress', (e) => {
-                        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-                    });
-                }
-
-                xhr.addEventListener('load', () => {
-                    try {
-                        const res = JSON.parse(xhr.responseText);
-                        if (!res.success) reject(new Error(res.error));
-                        else resolve(res);
-                    } catch (err) { reject(err); }
-                });
-                xhr.addEventListener('error', () => reject(new Error('Erreur réseau')));
-                xhr.send(fd);
-            });
+        uploadMedia(file, onProgress) {
+            return this.uploadVideo(file, onProgress);
         },
 
         // VIDEO STREAMING (utilisé par server.js aussi)

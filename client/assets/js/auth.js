@@ -1,6 +1,6 @@
 /**
  * BereaFS Auth Module
- * sessionStorage pour les tokens (sécurité XSS)
+ * Token en localStorage (session multi-onglets), user en localStorage
  */
 const Auth = (() => {
     let currentUser = null;
@@ -20,7 +20,7 @@ const Auth = (() => {
     const clearSession = () => {
         currentUser = null;
         localStorage.removeItem('bereafs_current');
-        sessionStorage.removeItem('bereafs_token');
+        localStorage.removeItem('bereafs_token');
     };
 
     return {

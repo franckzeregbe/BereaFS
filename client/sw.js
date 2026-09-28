@@ -2,8 +2,9 @@
  * BereaFS Service Worker — Cache intelligent
  * Stratégie: Cache First pour les assets, Network First pour les API
  */
-const CACHE_NAME = 'bereafs-v2';
+const CACHE_NAME = 'bereafs-v4';
 const STATIC_CACHE = [
+    '/academie',
     '/client/index.html',
     '/client/dashboard.html',
     '/client/lesson-streaming.html',
