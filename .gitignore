@@ -1,6 +1,18 @@
 node_modules/
 .env
-server/uploads/
-server/bereafs.db
+.env.*
+!.env.example
+
+# Base SQLite (y compris fichiers WAL)
 *.db
+*.db-shm
+*.db-wal
+
+# Médias téléversés
+server/uploads/
+
+# Divers
+*.log
+coverage/
 .DS_Store
+Thumbs.db

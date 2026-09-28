@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BereaFS - Gestion Vidéos</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafb;color:#1e293b;padding:20px;max-width:1200px;margin:0 auto}
+        header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+        header a{color:#c05621;font-weight:600;text-decoration:none}
+        h1{margin-bottom:8px}.lead{color:#64748b}
+        .upload-zone{border:3px dashed #e2e8f0;border-radius:16px;padding:60px 20px;text-align:center;transition:border-color .3s,background .3s;cursor:pointer;background:#fff}
+        .upload-zone:hover,.upload-zone.dragover,.upload-zone:focus-visible{border-color:#c05621;background:#fff7ed;outline:none}
+        .upload-zone p{color:#64748b;margin:8px 0 16px}
+        .btn{padding:12px 24px;border-radius:10px;border:none;font-size:.95rem;font-weight:600;cursor:pointer}
+        .btn-primary{background:linear-gradient(135deg,#c05621,#ed8936);color:#fff}
+        .progress-container{display:none;margin-top:20px;background:#f1f5f9;border-radius:10px;overflow:hidden;height:30px}
+        .progress-fill{height:100%;background:linear-gradient(90deg,#c05621,#ed8936);width:0%;transition:width .3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:600}
+        .video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+        .video-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);border:1px solid #e2e8f0}
+        .video-thumb{height:160px;background:linear-gradient(135deg,#1e3a5f,#2c5282);display:flex;align-items:center;justify-content:center;border:none;width:100%;cursor:pointer}
+        .play-icon{width:60px;height:60px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff}
+        .video-info{padding:16px}
+        .video-info h3{font-size:1rem;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .video-info p{color:#64748b;font-size:.85rem;margin-bottom:12px}
+        .video-actions{display:flex;gap:8px}
+        .video-actions button{flex:1;padding:8px;border-radius:8px;border:none;font-size:.85rem;cursor:pointer}
+        .btn-play{background:linear-gradient(135deg,#1e3a5f,#2c5282);color:#fff}
+        .btn-delete{background:#fef2f2;color:#dc2626}
+        .btn-delete:hover{background:#fee2e2}
+        #status{margin-top:16px;padding:12px 16px;border-radius:10px;display:none}
+        #status.success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;display:block}
+        #status.error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;display:block}
+        h2.section{margin:32px 0 16px}
+        .muted{color:#64748b}
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>BereaFS - Gestion Vidéos</h1>
+            <p class="lead">Téléversez vos vidéos de cours et testez le streaming.</p>
+        </div>
+        <a href="/client/dashboard.html">← Retour au tableau de bord</a>
+    </header>
+    <main>
+        <div class="upload-zone" id="dropZone" role="button" tabindex="0" aria-label="Téléverser une vidéo">
+            <h2>Déposez vos vidéos ici</h2>
+            <p>ou cliquez pour sélectionner un fichier (MP4, WebM, OGG, MOV, AVI, MKV — 2 Go max)</p>
+            <span class="btn btn-primary">Choisir une vidéo</span>
+            <input type="file" id="fileInput" hidden accept="video/*">
+            <div class="progress-container" id="progressContainer"><div class="progress-fill" id="progressFill">0%</div></div>
+        </div>
+        <div id="status" role="status" aria-live="polite"></div>
+        <h2 class="section">Vidéos disponibles</h2>
+        <div id="videoList"><p class="muted">Chargement...</p></div>
+    </main>
+    <script src="/client/assets/js/admin.js"></script>
+</body>
+</html>
