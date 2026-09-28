@@ -20,11 +20,18 @@ const Notifications = (() => {
         el.className = `notification ${type}`;
 
         const icons = { success: '✓', error: '✗', info: 'ℹ', warning: '⚠' };
-        el.innerHTML = `
-            <span class="notification-icon">${icons[type] || 'ℹ'}</span>
-            <span class="notification-text">${message}</span>
-            <button class="notification-close" onclick="this.parentElement.remove()">×</button>
-        `;
+        const icon = document.createElement('span');
+        icon.className = 'notification-icon';
+        icon.textContent = icons[type] || 'ℹ';
+        const text = document.createElement('span');
+        text.className = 'notification-text';
+        text.textContent = String(message);
+        const close = document.createElement('button');
+        close.className = 'notification-close';
+        close.type = 'button';
+        close.textContent = '×';
+        close.addEventListener('click', () => el.remove());
+        el.append(icon, text, close);
 
         c.appendChild(el);
 

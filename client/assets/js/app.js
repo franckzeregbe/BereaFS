@@ -83,17 +83,26 @@
         const isEns = Auth.isEnseignant();
         container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
         try {
-            const data = await API.getCourses();
+            const [data, statsData] = await Promise.all([API.getCourses(), API.getStats()]);
             const courses = data.success ? data.courses : [];
             const active = courses.filter(c => c.status === 'active').slice(0, 3);
+            const s = statsData.success ? statsData.stats : {};
+            const cards = isEns ? [
+                { label: 'Élèves inscrits', value: s.students ?? '—', trend: 'Inscrits sur la plateforme', cls: 'trend-up' },
+                { label: 'Cours publiés', value: s.courses ?? '—', trend: 'En ligne', cls: 'trend-up' },
+                { label: 'Complétion moyenne', value: (s.avgProgress ?? 0) + '%', trend: 'Tous cours', cls: 'trend-up' },
+                { label: 'Tentatives de quiz', value: s.quizAttempts ?? '—', trend: 'Sur mes cours', cls: 'trend-up' }
+            ] : [
+                { label: 'Modules suivis', value: courses.length || '0', trend: 'Disponibles', cls: 'trend-up' },
+                { label: 'Leçons terminées', value: s.lessonsCompleted ?? '—', trend: 'Bravo !', cls: 'trend-up' },
+                { label: 'Progression moyenne', value: avgProgress(courses) + '%', trend: 'Tous modules', cls: 'trend-up' },
+                { label: 'Quiz tentés', value: s.quizAttempts ?? '0', trend: s.quizAvg != null ? 'Moyenne: ' + s.quizAvg + '%' : 'Aucun quiz', cls: 'trend-up' }
+            ];
             container.innerHTML = `
             <div class="animate-fade">
                 <div class="top-bar"><h2>${isEns ? 'Tableau de bord' : 'Mon Parcours'}</h2>${isEns ? '<button class="btn btn-primary" onclick="showPage(\'create\')">+ Nouveau cours</button>' : ''}</div>
                 <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-label">${isEns ? 'Élèves actifs' : 'Modules suivis'}</div><div class="stat-value">${isEns ? '142' : courses.length || '0'}</div><div class="stat-trend trend-up">${isEns ? '+12 ce mois' : 'En cours'}</div></div>
-                    <div class="stat-card"><div class="stat-label">${isEns ? 'Cours publiés' : 'Heures étudiées'}</div><div class="stat-value">${isEns ? '5' : '47h'}</div><div class="stat-trend trend-up">Actif</div></div>
-                    <div class="stat-card"><div class="stat-label">Complétion</div><div class="stat-value">67%</div><div class="stat-trend trend-up">+3%</div></div>
-                    <div class="stat-card"><div class="stat-label">${isEns ? 'À corriger' : 'Versets mémorisés'}</div><div class="stat-value">${isEns ? '23' : '15'}</div><div class="stat-trend ${isEns ? 'trend-down' : 'trend-up'}">${isEns ? '5 urgents' : 'Objectif: 20'}</div></div>
+                    ${cards.map(c => `<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-value">${c.value}</div><div class="stat-trend ${c.cls}">${c.trend}</div></div>`).join('')}
                 </div>
                 <div class="section-header"><h3 class="section-title">${isEns ? 'Modules actifs' : 'Continuer mon apprentissage'}</h3><button class="btn btn-outline" onclick="showPage('courses')">Voir tout →</button></div>
                 <div class="modules-grid">
@@ -101,7 +110,7 @@
                         <div class="module-card" style="animation-delay:${i*0.1}s">
                             <div class="module-header"><span class="module-tag tag-${escAttr(c.tag||'fondements')}">${esc(c.tag||'Fondements')}</span><h4 class="module-title">${esc(c.title)}</h4><p class="module-desc">${esc(c.description||'')}</p></div>
                             <div class="module-progress"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${c.progress||0}%"></div></div><div class="progress-text"><span>${c.completed_lessons||0}/${c.total_lessons||c.lessons_count||0} leçons</span><span class="pct">${c.progress||0}%</span></div></div>
-                            <div class="module-footer"><div class="module-meta"><span>⏱ ${c.hours||0}h</span><span>👥 ${c.students||0}</span></div><a class="module-link" onclick="event.preventDefault();showPage('courses',{course:${c.id}})">Continuer →</a></div>
+                            <div class="module-footer"><div class="module-meta"><span>⏱ ${c.hours||0}h</span><span>📚 ${c.total_lessons||c.lessons_count||0} leçons</span></div><a class="module-link" onclick="event.preventDefault();showPage('courses',{course:${c.id}})">Continuer →</a></div>
                         </div>
                     `).join('') : '<p style="color:var(--text-light)">Aucun cours disponible.</p>'}
                 </div>
@@ -109,6 +118,11 @@
         } catch (err) {
             container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`;
         }
+    }
+
+    function avgProgress(courses) {
+        if (!courses || !courses.length) return 0;
+        return Math.round(courses.reduce((s, c) => s + (c.progress || 0), 0) / courses.length);
     }
 
     async function renderCourses(container, params) {
@@ -125,7 +139,7 @@
                         <div class="module-card">
                             <div class="module-header"><span class="module-tag tag-${escAttr(c.tag||'fondements')}">${esc(c.tag||'Fondements')}</span><h4 class="module-title">${esc(c.title)}</h4><p class="module-desc">${esc(c.description||'')}</p></div>
                             <div class="module-progress"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${c.progress||0}%"></div></div><div class="progress-text"><span>${c.completed_lessons||0}/${c.total_lessons||c.lessons_count||0} leçons</span><span class="pct">${c.progress||0}%</span></div></div>
-                            <div class="module-footer"><span style="font-size:.8rem;color:var(--text-light)">⏱ ${c.hours||0}h</span><a class="module-link" onclick="event.preventDefault();showPage('courses',{course:${c.id}})">Ouvrir →</a></div>
+                            <div class="module-footer"><span style="font-size:.8rem;color:var(--text-light)">⏱ ${c.hours||0}h • 📚 ${c.total_lessons||c.lessons_count||0} leçons</span><a class="module-link" onclick="event.preventDefault();showPage('courses',{course:${c.id}})">Ouvrir →</a></div>
                         </div>
                     `).join('')}
                 </div>
@@ -148,7 +162,7 @@
                     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">
                         <div style="text-align:center;padding:16px;background:#f8fafb;border-radius:12px"><div style="font-size:1.5rem;font-weight:700">${lessons.length}</div><div style="font-size:.8rem;color:var(--text-light)">Leçons</div></div>
                         <div style="text-align:center;padding:16px;background:#f8fafb;border-radius:12px"><div style="font-size:1.5rem;font-weight:700">${data.course.hours||0}h</div><div style="font-size:.8rem;color:var(--text-light)">Durée</div></div>
-                        <div style="text-align:center;padding:16px;background:#f8fafb;border-radius:12px"><div style="font-size:1.5rem;font-weight:700">${data.course.students||0}</div><div style="font-size:.8rem;color:var(--text-light)">Étudiants</div></div>
+                        <div style="text-align:center;padding:16px;background:#f8fafb;border-radius:12px"><div style="font-size:1.5rem;font-weight:700">${(data.quizzes||[]).length}</div><div style="font-size:.8rem;color:var(--text-light)">Quiz</div></div>
                         <div style="text-align:center;padding:16px;background:#f8fafb;border-radius:12px"><div style="font-size:1.5rem;font-weight:700;color:var(--accent)">${data.course.progress||0}%</div><div style="font-size:.8rem;color:var(--text-light)">Progression</div></div>
                     </div>
                     <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:16px">Contenu du cours</h3>
@@ -156,7 +170,7 @@
                         ${lessons.map((l, i) => {
                             const isDone = l.completed;
                             const isCurrent = !isDone && (!lessons.find(x => !x.completed && x.num < l.num));
-                            return `<div class="lesson-item ${isCurrent?'active':''}" onclick="openLesson(${courseId},${l.id},'${escAttr(l.title)}','${escAttr(l.video_url||'')}','${escAttr(l.audio_url||'')}')">
+                            return `<div class="lesson-item ${isCurrent?'active':''}" onclick="openLesson(${courseId},${l.id})">
                                 <div class="lesson-number ${isDone?'done':isCurrent?'current':'pending'}">${isDone?'✓':l.num}</div>
                                 <div style="flex:1"><div style="font-weight:600">${esc(l.title)}</div>
                                 <div style="font-size:.8rem;color:var(--text-light);display:flex;gap:12px;margin-top:2px"><span>⏱ ${esc(l.duration||'45min')}</span>${l.has_video?'<span>🎥 Vidéo</span>':''}${l.has_audio?'<span>🎧 Audio</span>':''}</div></div>
@@ -165,12 +179,29 @@
                         }).join('')}
                     </div>
                 </div>
+                ${Auth.isEnseignant() ? `
+                <div class="panel" style="max-width:800px">
+                    <h3 style="margin-bottom:6px">Ajouter une leçon</h3>
+                    <p style="color:var(--text-light);font-size:.9rem;margin-bottom:20px">Ajoutez le contenu, puis associez une vidéo ou un audio déjà téléversé.</p>
+                    <form onsubmit="addLesson(event,${courseId})">
+                        <div class="form-grid">
+                            <div class="input-group"><label>Numéro</label><input type="number" id="lNum" value="${lessons.length + 1}" min="1" required></div>
+                            <div class="input-group"><label>Titre</label><input type="text" id="lTitle" placeholder="Ex. La grâce de Dieu" required></div>
+                            <div class="input-group"><label>Durée</label><input type="text" id="lDuration" value="45 min" required></div>
+                            <div class="input-group"><label>Référence biblique</label><input type="text" id="lScripture" placeholder="Ex. Éphésiens 2:8-9"></div>
+                            <div class="input-group form-full"><label>Contenu de la leçon</label><textarea id="lContent" placeholder="Résumé ou notes à lire avant la vidéo."></textarea></div>
+                            <div class="input-group form-full"><label>URL de la vidéo (facultatif)</label><input type="url" id="lVideo" placeholder="/uploads/videos/nom-de-fichier.mp4"></div>
+                            <div class="input-group form-full"><label>URL de l'audio (facultatif)</label><input type="url" id="lAudio" placeholder="/uploads/audios/nom-de-fichier.mp3"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">+ Ajouter la leçon</button>
+                    </form>
+                </div>` : ''}
             </div>`;
         } catch (err) { container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`; }
     }
 
-    function openLesson(courseId, lessonId, title, videoUrl, audioUrl) {
-        window.location.href = `/client/lesson-streaming.html?course=${encodeURIComponent(courseId)}&lesson=${encodeURIComponent(lessonId)}&title=${encodeURIComponent(title)}&video=${encodeURIComponent(videoUrl)}&audio=${encodeURIComponent(audioUrl)}`;
+    function openLesson(courseId, lessonId) {
+        window.location.href = `/client/lesson-streaming.html?course=${encodeURIComponent(courseId)}&lesson=${encodeURIComponent(lessonId)}`;
     }
 
     function renderUpload(container) {
@@ -266,12 +297,343 @@
         } catch (err) { Notifications.error(err.message); }
     }
 
-    function renderStudents(container) {
-        container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2> Gestion des Étudiants</h2><div style="display:flex;gap:8px"><button class="btn btn-outline"> Exporter</button><button class="btn btn-primary">+ Inviter</button></div></div><div class="panel"><div style="margin-bottom:16px"><input type="text" placeholder="Rechercher..." style="width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:12px;outline:none"></div><table class="data-table"><thead><tr><th>Élève</th><th>Email</th><th>Progression</th><th>Note</th><th>Statut</th></tr></thead><tbody><tr><td><div class="student-name"><div class="mini-avatar">MK</div>Marie K.</div></td><td>marie@bereafs.com</td><td><div class="progress-bar-bg" style="width:120px"><div class="progress-bar-fill" style="width:85%"></div></div></td><td><span class="score-ring score-high">92</span></td><td><span class="status-badge status-actif">Actif</span></td></tr><tr><td><div class="student-name"><div class="mini-avatar">JO</div>Jean O.</div></td><td>jean@email.com</td><td><div class="progress-bar-bg" style="width:120px"><div class="progress-bar-fill" style="width:45%"></div></div></td><td><span class="score-ring score-mid">68</span></td><td><span class="status-badge status-retard">Retard</span></td></tr></tbody></table></div></div>`;
+    async function addLesson(e, courseId) {
+        e.preventDefault();
+        const button = e.target.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+            await API.addLesson(courseId, {
+                num: Number(document.getElementById('lNum').value),
+                title: document.getElementById('lTitle').value.trim(),
+                duration: document.getElementById('lDuration').value.trim(),
+                scripture: document.getElementById('lScripture').value.trim(),
+                content: document.getElementById('lContent').value.trim(),
+                video_url: document.getElementById('lVideo').value.trim(),
+                audio_url: document.getElementById('lAudio').value.trim()
+            });
+            Notifications.success('Leçon ajoutée.');
+            showPage('courses', { course: courseId });
+        } catch (err) {
+            Notifications.error(err.message);
+            button.disabled = false;
+        }
     }
 
-    function renderQuizzes(container) { container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2>❓ Quiz & Examens</h2><button class="btn btn-primary">+ Nouveau quiz</button></div><div class="modules-grid"><div class="panel"><h3 style="margin-bottom:12px">📝 Quiz: Fondements de la Foi</h3><p style="color:var(--text-light);margin-bottom:16px">Module 1 • 10 questions • 20 min</p><button class="btn btn-primary" onclick="Notifications.info('Quiz en développement')">Commencer</button></div></div></div>`; }
-    function renderProgress(container) { container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2>📊 Ma Progression</h2></div><div class="panel" style="padding:60px;text-align:center"><h3>Votre progression est suivie automatiquement</h3></div></div>`; }
+    async function renderStudents(container) {
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+        try {
+            const data = await API.getStudents();
+            const students = data.success ? data.students : [];
+            container.innerHTML = `
+            <div class="animate-fade">
+                <div class="top-bar"><h2>👥 Gestion des Étudiants</h2><span style="color:var(--text-light);font-size:.9rem">${students.length} étudiant(s) inscrit(s)</span></div>
+                <div class="panel">
+                    <div style="margin-bottom:16px"><input type="text" id="studentSearch" placeholder="Rechercher un étudiant (nom ou email)..." style="width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:12px;outline:none;font-family:inherit"></div>
+                    <div style="overflow-x:auto">
+                    <table class="data-table" id="studentsTable"><thead><tr><th>Élève</th><th>Email</th><th>Pays</th><th>Leçons terminées</th><th>Note quiz</th><th>Dernière activité</th><th>Statut</th></tr></thead><tbody></tbody></table>
+                    </div>
+                    <p id="noStudents" style="color:var(--text-light);display:none;text-align:center;padding:24px">Aucun étudiant trouvé.</p>
+                </div>
+            </div>`;
+            const tbody = container.querySelector('tbody');
+            const noEl = container.querySelector('#noStudents');
+            const fmtDate = (d) => d ? new Date(d + 'Z').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+            const initials = (n) => String(n || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+            const render = (list) => {
+                tbody.innerHTML = list.map(st => {
+                    const initialsHtml = esc(initials(st.name));
+                    const active = st.last_activity && (Date.now() - new Date(st.last_activity + 'Z').getTime()) < 30 * 24 * 3600 * 1000;
+                    return `<tr data-name="${escAttr((st.name + ' ' + st.email).toLowerCase())}">
+                        <td><div class="student-name"><div class="mini-avatar">${initialsHtml}</div>${esc(st.name)}</div></td>
+                        <td>${esc(st.email)}</td>
+                        <td>${esc(st.country || '—')}</td>
+                        <td>${st.lessons_done || 0} <span style="color:var(--text-light);font-size:.8rem">(${st.courses_started || 0} cours)</span></td>
+                        <td>${st.avg_quiz_score != null ? `<span class="score-ring ${st.avg_quiz_score >= 70 ? 'score-high' : st.avg_quiz_score >= 50 ? 'score-mid' : 'score-low'}">${st.avg_quiz_score}</span>` : '<span style="color:var(--text-light)">—</span>'}</td>
+                        <td>${fmtDate(st.last_activity)}</td>
+                        <td><span class="status-badge ${active ? 'status-actif' : 'status-retard'}">${active ? 'Actif' : 'Inactif'}</span></td>
+                    </tr>`;
+                }).join('');
+                noEl.style.display = list.length ? 'none' : 'block';
+            };
+            render(students);
+            container.querySelector('#studentSearch').addEventListener('input', (e) => {
+                const q = e.target.value.trim().toLowerCase();
+                render(students.filter(st => (st.name + ' ' + st.email).toLowerCase().includes(q)));
+            });
+        } catch (err) { container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`; }
+    }
+
+    async function renderQuizzes(container) {
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+        try {
+            const data = await API.getMyQuizzes();
+            const quizzes = data.success ? data.quizzes : [];
+            const isEns = Auth.isEnseignant();
+            container.innerHTML = `
+            <div class="animate-fade">
+                <div class="top-bar"><h2>❓ Quiz & Examens</h2>${isEns ? '<button class="btn btn-primary" id="newQuizBtn">+ Créer un quiz</button>' : ''}</div>
+                <div id="quizList" class="modules-grid">
+                    ${quizzes.length === 0
+                        ? `<div class="panel" style="grid-column:1/-1"><p style="color:var(--text-light);text-align:center;padding:20px">${isEns ? 'Aucun quiz. Créez-en un pour vos étudiants.' : 'Aucun quiz disponible pour le moment.'}</p></div>`
+                        : quizzes.map(q => `
+                        <div class="panel">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+                                <span class="module-tag tag-fondements">${esc(q.level_name || 'Niveau ' + q.level)}</span>
+                                ${q.best_score != null ? `<span class="score-ring ${q.best_score >= q.pass_score ? 'score-high' : q.best_score >= 50 ? 'score-mid' : 'score-low'}">${q.best_score}</span>` : ''}
+                            </div>
+                            <h3 style="font-size:1rem;margin-bottom:4px">${esc(q.course_title)}</h3>
+                            <p style="color:var(--text-light);font-size:.85rem;margin-bottom:12px">${q.questions_count} question(s) • Seuil: ${q.pass_score}%${q.best_score != null ? ` • Meilleur score: ${q.best_score}%${q.attempts > 1 ? ` (${q.attempts} tentatives)` : ''}` : ' • Pas encore tenté'}</p>
+                            <button class="btn ${q.best_score != null ? 'btn-outline' : 'btn-primary'} quiz-start" data-course="${q.course_id}" data-level="${q.level}">${q.best_score != null ? '🔄 Refaire' : '▶ Commencer'}</button>
+                        </div>`).join('')}
+                </div>
+                <div id="quizRunner"></div>
+            </div>`;
+
+            container.querySelectorAll('.quiz-start').forEach(btn => {
+                btn.addEventListener('click', () => startQuiz(container, Number(btn.dataset.course), Number(btn.dataset.level)));
+            });
+            const newBtn = container.querySelector('#newQuizBtn');
+            if (newBtn) newBtn.addEventListener('click', () => renderQuizForm(container));
+
+            if (isEns) {
+                const coursesData = await API.getCourses();
+                container._teacherCourses = (coursesData.success ? coursesData.courses : []).filter(c => c.status === 'active');
+            }
+        } catch (err) { container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`; }
+    }
+
+    async function startQuiz(container, courseId, level) {
+        const runner = container.querySelector('#quizRunner');
+        runner.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement du quiz...</div>';
+        try {
+            const data = await API.getQuiz(courseId, level);
+            if (!data.success || !data.questions || !data.questions.length) throw new Error('Quiz vide');
+            const questions = data.questions.map(q => ({
+                id: q.id,
+                question: q.question,
+                options: JSON.parse(q.options),
+                answer: null
+            }));
+            let current = 0;
+            const answers = [];
+
+            const renderQuestion = () => {
+                const q = questions[current];
+                runner.innerHTML = `
+                <div class="quiz-container" style="margin-top:24px">
+                    <div style="display:flex;justify-content:space-between;font-size:.85rem;color:var(--text-light);margin-bottom:12px"><span>Question ${current + 1}/${questions.length}</span><button class="btn btn-sm btn-outline" id="quizQuit">← Quitter</button></div>
+                    <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${(current / questions.length) * 100}%"></div></div>
+                    <div class="quiz-question">${esc(q.question)}</div>
+                    <div class="quiz-options">
+                        ${q.options.map((opt, i) => `
+                            <div class="quiz-option${answers[current] === i ? ' selected' : ''}" data-i="${i}">
+                                <div class="quiz-letter">${String.fromCharCode(65 + i)}</div>
+                                <div>${esc(opt)}</div>
+                            </div>`).join('')}
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:24px;gap:12px">
+                        <button class="btn btn-outline" id="quizPrev" ${current === 0 ? 'disabled' : ''}>← Précédent</button>
+                        <button class="btn btn-primary" id="quizNext" ${answers[current] == null ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}>${current === questions.length - 1 ? '✓ Soumettre' : 'Suivant →'}</button>
+                    </div>
+                </div>`;
+                runner.querySelector('#quizQuit').addEventListener('click', () => { runner.innerHTML = ''; });
+                runner.querySelectorAll('.quiz-option').forEach(el => el.addEventListener('click', () => {
+                    answers[current] = Number(el.dataset.i);
+                    runner.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
+                    el.classList.add('selected');
+                    const nextBtn = runner.querySelector('#quizNext');
+                    nextBtn.disabled = false; nextBtn.removeAttribute('style');
+                }));
+                runner.querySelector('#quizPrev').addEventListener('click', () => { if (current > 0) { current--; renderQuestion(); } });
+                runner.querySelector('#quizNext').addEventListener('click', async () => {
+                    if (answers[current] == null) return;
+                    if (current < questions.length - 1) { current++; renderQuestion(); return; }
+                    const btn = runner.querySelector('#quizNext');
+                    btn.disabled = true; btn.textContent = 'Correction...';
+                    try {
+                        const result = await API.submitQuiz(data.quiz.id, answers);
+                        renderQuizResult(runner, questions, answers, result, () => startQuiz(container, courseId, level));
+                    } catch (err) { Notifications.error(err.message); btn.disabled = false; btn.textContent = '✓ Soumettre'; }
+                });
+            };
+            renderQuestion();
+        } catch (err) { runner.innerHTML = `<div class="panel"><p style="color:var(--danger)">${esc(err.message)}</p></div>`; }
+    }
+
+    function renderQuizResult(runner, questions, answers, result, retryFn) {
+        const passed = result.passed;
+        runner.innerHTML = `
+        <div class="quiz-container" style="margin-top:24px;text-align:center">
+            <div style="font-size:3rem;margin-bottom:8px">${passed ? '🎉' : '📚'}</div>
+            <h2 style="font-size:1.6rem;font-weight:700">${passed ? 'Réussi !' : 'Presque !'}</h2>
+            <div style="font-size:2.5rem;font-weight:800;color:${passed ? 'var(--success)' : 'var(--danger)'};margin:12px 0">${result.score}%</div>
+            <p style="color:var(--text-light);margin-bottom:20px">${result.correct}/${result.total} réponses correctes • Seuil de réussite: ${result.passScore}%</p>
+            <div style="text-align:left;margin:20px 0">
+                ${questions.map((q, i) => {
+                    const r = result.results[i];
+                    return `<div style="padding:14px 0;border-bottom:1px solid var(--border)">
+                        <div style="display:flex;gap:10px;align-items:flex-start"><span>${r.isCorrect ? '✅' : '❌'}</span><div><div style="font-weight:600">${esc(q.question)}</div>
+                        <div style="font-size:.85rem;color:var(--text-light);margin-top:4px">Votre réponse: ${r.userAnswer != null && !Number.isNaN(r.userAnswer) ? esc(q.options[r.userAnswer]) : 'Aucune'}${r.isCorrect ? '' : ' — Bonne réponse: ' + esc(q.options[r.correctAnswer])}</div>
+                        ${r.explanation ? `<div class="explanation show" style="margin-top:10px;font-size:.85rem">${esc(r.explanation)}</div>` : ''}</div></div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                <button class="btn btn-outline" id="quizBackList">← Retour aux quiz</button>
+                <button class="btn btn-primary" id="quizRetry">🔄 Refaire</button>
+            </div>
+        </div>`;
+        runner.querySelector('#quizBackList').addEventListener('click', () => { runner.innerHTML = ''; });
+        runner.querySelector('#quizRetry').addEventListener('click', retryFn);
+        if (passed) Notifications.success('Quiz réussi avec ' + result.score + '% !');
+    }
+
+    function renderQuizForm(container) {
+        const runner = container.querySelector('#quizRunner');
+        const courses = container._teacherCourses || [];
+        if (!courses.length) { Notifications.error('Créez d\'abord un cours.'); return; }
+        runner.innerHTML = `
+        <div class="panel" style="margin-top:24px;max-width:800px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <h3>➕ Nouveau quiz</h3><button class="btn btn-sm btn-outline" id="quizFormClose">✕</button>
+            </div>
+            <form id="quizCreateForm">
+                <div class="form-grid">
+                    <div class="input-group"><label>Cours</label><select id="qCourse">${courses.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join('')}</select></div>
+                    <div class="input-group"><label>Niveau</label><select id="qLevel"><option value="1">1 — Débutant</option><option value="2">2 — Intermédiaire</option><option value="3">3 — Avancé</option></select></div>
+                    <div class="input-group"><label>Score de réussite (%)</label><input type="number" id="qPass" min="10" max="100" value="70" required></div>
+                    <div class="input-group"><label>Nom du niveau (facultatif)</label><input type="text" id="qLevelName" placeholder="Ex. Examen final"></div>
+                </div>
+                <div id="qQuestions"></div>
+                <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-outline" id="addQuestionBtn">+ Ajouter une question</button>
+                    <button type="submit" class="btn btn-primary">💾 Créer le quiz</button>
+                </div>
+            </form>
+        </div>`;
+        runner.querySelector('#quizFormClose').addEventListener('click', () => { runner.innerHTML = ''; });
+
+        const qList = runner.querySelector('#qQuestions');
+        let qCount = 0;
+        const addQuestion = () => {
+            qCount++;
+            const div = document.createElement('div');
+            div.className = 'q-block';
+            div.style.cssText = 'border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px';
+            div.innerHTML = `
+                <div class="input-group"><label>Question ${qCount}</label><input type="text" class="qq-text" placeholder="Énoncé de la question" required></div>
+                <div class="form-grid" style="gap:12px">
+                    ${[0, 1, 2, 3].map(i => `<div class="input-group" style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="radio" name="qq-correct-${qCount}" class="qq-answer" value="${i}" title="Bonne réponse" style="width:auto"><input type="text" class="qq-opt" placeholder="Option ${String.fromCharCode(65 + i)}"></div>`).join('')}
+                </div>
+                <div class="input-group"><label>Explication (facultatif)</label><input type="text" class="qq-expl" placeholder="Pourquoi cette réponse est correcte"></div>`;
+            qList.appendChild(div);
+        };
+        addQuestion();
+        runner.querySelector('#addQuestionBtn').addEventListener('click', addQuestion);
+
+        runner.querySelector('#quizCreateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const questions = [];
+            let invalid = false;
+            runner.querySelectorAll('.q-block').forEach((block, bi) => {
+                const text = block.querySelector('.qq-text').value.trim();
+                const opts = [...block.querySelectorAll('.qq-opt')].map(o => o.value.trim());
+                const checked = block.querySelector('.qq-answer:checked');
+                if (!text || opts.some(o => !o)) { invalid = true; }
+                if (!checked) { invalid = true; }
+                if (text && opts.every(o => o) && checked) {
+                    questions.push({ question: text, options: opts, answer: Number(checked.value), explanation: block.querySelector('.qq-expl').value.trim() });
+                }
+                void bi;
+            });
+            if (invalid) { Notifications.error('Chaque question nécessite un énoncé, 4 options et une bonne réponse cochée.'); return; }
+            if (!questions.length) { Notifications.error('Ajoutez au moins une question valide.'); return; }
+            const payload = {
+                course_id: Number(runner.querySelector('#qCourse').value),
+                level: Number(runner.querySelector('#qLevel').value),
+                level_name: runner.querySelector('#qLevelName').value.trim() || undefined,
+                pass_score: Number(runner.querySelector('#qPass').value),
+                questions
+            };
+            try {
+                await API.createQuiz(payload);
+                Notifications.success('Quiz créé !');
+                runner.innerHTML = '';
+                renderQuizzes(document.getElementById('main'));
+            } catch (err) { Notifications.error(err.message); }
+        });
+    }
+    async function renderProgress(container) {
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+        try {
+            const data = await API.getCourses();
+            const courses = data.success ? data.courses : [];
+            container.innerHTML = `
+            <div class="animate-fade">
+                <div class="top-bar"><h2>📊 Ma Progression</h2></div>
+                ${courses.length === 0 ? '<div class="panel"><p style="color:var(--text-light)">Aucun cours disponible pour le moment.</p></div>' : `
+                <div class="panel">
+                    ${courses.map(c => `
+                        <div style="padding:16px 0;border-bottom:1px solid var(--border)">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:12px;flex-wrap:wrap">
+                                <div style="font-weight:600">${esc(c.title)}</div>
+                                <div style="display:flex;align-items:center;gap:12px"><span style="font-size:.85rem;color:var(--text-light)">${c.completed_lessons||0}/${c.total_lessons||c.lessons_count||0} leçons</span><span class="pct" style="font-weight:700;color:var(--accent)">${c.progress||0}%</span></div>
+                            </div>
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${c.progress||0}%"></div></div>
+                            <div style="margin-top:10px"><a class="module-link" style="font-size:.85rem;cursor:pointer" onclick="event.preventDefault();showPage('courses',{course:${c.id}})">${(c.progress||0) === 100 ? 'Revoir le cours →' : 'Continuer →'}</a></div>
+                        </div>`).join('')}
+                </div>`}
+            </div>`;
+        } catch (err) { container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`; }
+    }
+
+    async function renderCertificates(container) {
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+        try {
+            const data = await API.getCourses();
+            const courses = (data.success ? data.courses : []).filter(c => (c.progress || 0) === 100);
+            container.innerHTML = `
+            <div class="animate-fade">
+                <div class="top-bar"><h2>🎓 Mes Certificats</h2></div>
+                ${courses.length === 0
+                    ? '<div class="panel" style="text-align:center;padding:60px"><h3>Aucun certificat pour le moment</h3><p style="color:var(--text-light);margin-top:8px">Terminez 100% d\'un cours pour obtenir votre certificat.</p><button class="btn btn-primary" style="margin-top:20px" onclick="showPage(\'courses\')">Voir mes cours →</button></div>'
+                    : `<div class="modules-grid">${courses.map(c => `
+                        <div class="module-card" style="border:2px solid var(--accent)">
+                            <div class="module-header" style="text-align:center">
+                                <div style="font-size:2.5rem">🎓</div>
+                                <h4 class="module-title">${esc(c.title)}</h4>
+                                <p class="module-desc">Certificat de complétion obtenu — ${c.total_lessons||c.lessons_count||0} leçons, ${c.hours||0}h</p>
+                            </div>
+                            <div class="module-footer" style="justify-content:center"><button class="btn btn-accent" onclick="printCertificate(${c.id},'${escAttr(c.title).replace(/'/g, "\\'")}')">🖨 Imprimer / PDF</button></div>
+                        </div>`).join('')}</div>`}
+            </div>`;
+        } catch (err) { container.innerHTML = `<div class="panel"><p style="color:var(--danger)">Erreur de chargement.</p></div>`; }
+    }
+
+    function printCertificate(courseId, title) {
+        const u = Auth.getCurrentUser();
+        const date = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+        const w = window.open('', '_blank');
+        w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Certificat - ${title}</title><style>
+            body{font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#fff}
+            .cert{border:12px double #1e3a5f;padding:60px 80px;text-align:center;max-width:700px}
+            .cert h1{font-size:2rem;color:#1e3a5f;margin-bottom:8px}
+            .cert .name{font-size:1.8rem;border-bottom:2px solid #c05621;padding:16px 0;margin:24px 0}
+            .cert p{color:#475569;line-height:1.6}
+            .cert .sig{margin-top:40px;display:flex;justify-content:space-between}
+            @media print{body{-webkit-print-color-adjust:exact}}
+        </style></head><body><div class="cert">
+            <h1>CERTIFICAT DE COMPLÉTION</h1>
+            <p>Académie biblique BereaFS</p>
+            <p style="margin-top:16px">Ce certificat est décerné à</p>
+            <div class="name">${esc(u.name)}</div>
+            <p>pour avoir complété avec succès le cours</p>
+            <p style="font-size:1.3rem;font-weight:700;color:#1e3a5f">${esc(title)}</p>
+            <p style="margin-top:16px">Fait le ${date}</p>
+            <div class="sig"><span>Académie BereaFS</span><span>Étudiant: ${esc(u.name)}</span></div>
+        </div><script>window.print()<\/script></body></html>`);
+        w.document.close();
+    }
     function renderAnalytics(container) { container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2>📈 Statistiques</h2></div><div class="panel" style="padding:60px;text-align:center"><h3>Analytics à venir</h3></div></div>`; }
     function renderMemorization(container) { container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2>🧠 Mémorisation</h2></div><div class="panel" style="max-width:600px;margin:0 auto;text-align:center;padding:40px"><p style="font-style:italic;font-size:1.1rem;margin-bottom:24px">"Toute Écriture est inspirée de Dieu..."</p><p style="color:var(--accent);font-weight:600">2 Timothée 3:16</p></div></div>`; }
     function renderCertificates(container) { container.innerHTML = `<div class="animate-fade"><div class="top-bar"><h2>🎓 Mes Certificats</h2></div><div class="panel" style="text-align:center;padding:60px;opacity:.6"><h3>Aucun certificat</h3><p style="color:var(--text-light)">Complétez un cours pour obtenir votre certificat.</p></div></div>`; }
@@ -338,6 +700,7 @@
     window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
     window.showPage = showPage;
     window.createCourse = createCourse;
+    window.addLesson = addLesson;
     window.deleteVideo = deleteVideo;
 
 })();

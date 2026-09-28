@@ -107,11 +107,10 @@
             <p id="lessonContent" style="line-height:1.8;color:var(--text);margin-bottom:16px">
                 La Parole dans le Nouveau Testament pour sauver et chef de l'Église, l'apôtre Paul déclare avec force à l'Église d'Éphèse que rien de ce que l'homme peut accomplir ne peut le sauver. C'est un acte pur de la grâce divine.
             </p>
-            <div class="scripture-box">
-                <p style="font-size:.85rem;color:var(--primary-light);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📖 Passages Bibliques</p>
-                <p style="font-style:italic;font-weight:500">« Car c'est par la grâce que vous êtes sauvés, par le moyen de la foi. »</p>
-                <p style="color:var(--accent);font-weight:600;margin-top:8px">— Éphésiens 2:8-9 (LSG)</p>
-            </div>
+<div class="scripture-box">
+    <p style="font-size:.85rem;color:var(--primary-light);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📖 Passage biblique</p>
+    <p id="lessonScripture" style="font-style:italic;font-weight:500"></p>
+</div>
             <div class="stats">
                 <div class="stat-item"><div style="font-size:1.5rem;font-weight:700">61</div><div style="font-size:.8rem;color:var(--text-light)">Minutes</div></div>
                 <div class="stat-item"><div style="font-size:1.5rem;font-weight:700">3</div><div style="font-size:.8rem;color:var(--text-light)">Passages</div></div>
@@ -119,12 +118,14 @@
             </div>
             <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
                 <button class="btn btn-primary" id="markCompleteBtn">✓ Marquer comme terminé</button>
-                <button class="btn btn-accent" onclick="window.location.href='dashboard.html'"> Passer le Quiz</button>
+                 <button class="btn btn-accent" id="quizBtn"> Passer le Quiz</button>
             </div>
         </div>
     </div>
 
     <script src="/client/assets/js/api.js"></script>
+    <script src="/client/assets/js/auth.js"></script>
+    <script src="/client/assets/js/security.js"></script>
     <script src="/client/assets/js/notifications.js"></script>
     <script src="/client/assets/js/pwa.js"></script>
 
@@ -133,19 +134,10 @@
     const params = new URLSearchParams(window.location.search);
     const courseId = params.get('course');
     const lessonId = params.get('lesson');
-    const title = params.get('title') || 'Leçon';
-    const videoUrl = params.get('video');
-    const audioUrl = params.get('audio');
+    let currentLesson = null;
 
-    // Set title
-    document.getElementById('lessonTitle').textContent = title;
-    if (courseId) {
-        document.getElementById('lessonSubtitle').textContent = 'Cours #' + courseId;
-    }
-
-    // Setup video/audio sources
-    if (videoUrl) document.getElementById('videoSource').src = videoUrl;
-    if (audioUrl) document.getElementById('audioSource').src = audioUrl;
+    // Garde d'authentification: API.requireAuth redirige vers la connexion si besoin
+    Auth.requireAuth();
 
     // Video player controls
     const video = document.getElementById('lessonVideo');
@@ -155,6 +147,37 @@
     const timeDisplay = document.getElementById('timeDisplay');
     const progressContainer = document.getElementById('progressContainer');
     const buffering = document.getElementById('buffering');
+
+    async function loadLesson() {
+        if (!courseId || !lessonId) { window.location.href = '/client/dashboard.html'; return; }
+        try {
+            const data = await API.getCourse(courseId);
+            currentLesson = (data.lessons || []).find(l => String(l.id) === String(lessonId));
+            if (!currentLesson) throw new Error('Leçon introuvable');
+            document.title = `BereaFS — ${currentLesson.title}`;
+            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            document.getElementById('lessonSubtitle').textContent = data.course.title;
+            document.getElementById('lessonContent').textContent = currentLesson.content || 'Le contenu de cette leçon sera bientôt disponible.';
+             const el = document.getElementById('lessonScripture');
+             if (currentLesson.scripture) {
+                 el.textContent = currentLesson.scripture;
+             } else {
+                 const box = document.querySelector('.scripture-box');
+                 if (box) box.style.display = 'none';
+             }
+            document.querySelector('.stat-item:first-child div').textContent = currentLesson.duration || '—';
+            if (currentLesson.video_url) { document.getElementById('videoSource').src = currentLesson.video_url; video.load(); }
+            else document.getElementById('videoContainer').style.display = 'none';
+            if (currentLesson.audio_url) { document.getElementById('audioSource').src = currentLesson.audio_url; audio.load(); }
+            else document.querySelector('.audio-player').style.display = 'none';
+            if (currentLesson.completed) {
+                const complete = document.getElementById('markCompleteBtn');
+                complete.textContent = '✓ Terminé'; complete.style.background = 'var(--success)'; complete.disabled = true;
+            }
+        } catch (err) {
+            document.getElementById('lessonContent').textContent = 'Impossible de charger cette leçon. Veuillez vous reconnecter.';
+        }
+    }
 
     playBtn.addEventListener('click', togglePlay);
     video.addEventListener('click', togglePlay);
@@ -231,6 +254,13 @@
         this.style.background = 'var(--success)';
         this.disabled = true;
     });
+
+    // Quiz page link
+    document.getElementById('quizBtn').addEventListener('click', () => {
+        window.location.href = '/client/dashboard.html';
+    });
+
+    if (Auth.requireAuth()) loadLesson();
     </script>
 </body>
 </html>
